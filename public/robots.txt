@@ -1,8 +1,0 @@
-User-agent: *
-Allow: /
-Disallow: /api/
-
-User-agent: Googlebot
-Allow: /
-
-Sitemap: https://referralchain.special-factory.com/sitemap.xml
