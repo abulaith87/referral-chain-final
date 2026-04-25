@@ -3,6 +3,20 @@ import { supabase } from '../lib/supabase'
 import { Product, Transaction, NetworkStats } from '../types'
 
 /* =========================
+   HELPERS
+========================= */
+
+// 🔥 جلب UUID الحقيقي من Supabase Auth
+const getAuthUserId = async () => {
+  const { data, error } = await supabase.auth.getUser()
+  if (error) {
+    console.error('Auth error:', error)
+    return null
+  }
+  return data.user?.id || null
+}
+
+/* =========================
    PRODUCTS (REAL-TIME READY)
 ========================= */
 export function useProducts() {
@@ -37,10 +51,11 @@ export function useProducts() {
       .select('*')
       .order('sales_count', { ascending: false })
 
-    if (!error && data) {
-      setProducts(data)
+    if (error) {
+      console.error('Products error:', error)
     }
 
+    setProducts(data || [])
     setLoading(false)
   }
 
@@ -59,15 +74,20 @@ export function useTransactions(userId?: string) {
   }, [userId])
 
   const fetchTransactions = async () => {
-    if (!userId) return
+    const uid = userId || (await getAuthUserId())
+    if (!uid) return
 
     setLoading(true)
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('transactions')
       .select('*')
-      .eq('user_id', userId)
+      .eq('user_id', uid)
       .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Transactions error:', error)
+    }
 
     setTransactions(data || [])
     setLoading(false)
@@ -93,11 +113,12 @@ export function useEarnings(userId?: string) {
   }, [userId])
 
   const fetchStats = async () => {
-    if (!userId) return
+    const uid = userId || (await getAuthUserId())
+    if (!uid) return
 
     const [{ data: earnings }, { data: referrals }] = await Promise.all([
-      supabase.from('earnings').select('*').eq('user_id', userId),
-      supabase.from('referrals').select('*').eq('referrer_id', userId),
+      supabase.from('earnings').select('*').eq('user_id', uid),
+      supabase.from('referrals').select('*').eq('referrer_id', uid),
     ])
 
     const pending =
@@ -127,7 +148,9 @@ export function useEarnings(userId?: string) {
 export function useAdmin() {
   const [loading, setLoading] = useState(false)
 
-  const addProduct = async (product: Omit<Product, 'id' | 'created_at' | 'sales_count'>) => {
+  const addProduct = async (
+    product: Omit<Product, 'id' | 'created_at' | 'sales_count'>
+  ) => {
     setLoading(true)
 
     const { error } = await supabase.from('products').insert([
