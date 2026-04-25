@@ -1,57 +1,128 @@
-import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
-import { Product } from '../types'
+import React, { useState } from 'react'
+import { useAdmin } from '../hooks/useDatabase'
 
 export function AdminDashboard() {
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
+  const { addProduct, deleteProduct, updateProduct, loading } = useAdmin()
 
-  useEffect(() => {
-    fetchProducts()
-  }, [])
+  const [form, setForm] = useState({
+    name: '',
+    description: '',
+    price: 0,
+    commission_rate: 0,
+    affiliate_link: '',
+    category: '',
+    trending: false,
+    is_active: true,
+  })
 
-  const fetchProducts = async () => {
-    setLoading(true)
+  const handleChange = (e: any) => {
+    const { name, value, type, checked } = e.target
+    setForm({
+      ...form,
+      [name]: type === 'checkbox' ? checked : value,
+    })
+  }
 
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .order('created_at', { ascending: false })
+  const handleSubmit = async () => {
+    const res = await addProduct({
+      ...form,
+      price: Number(form.price),
+      commission_rate: Number(form.commission_rate),
+    } as any)
 
-    if (!error && data) {
-      setProducts(data)
+    if (res.success) {
+      alert('تم إضافة المنتج بنجاح')
+      setForm({
+        name: '',
+        description: '',
+        price: 0,
+        commission_rate: 0,
+        affiliate_link: '',
+        category: '',
+        trending: false,
+        is_active: true,
+      })
+    } else {
+      alert('حدث خطأ')
     }
-
-    setLoading(false)
   }
 
   return (
-    <div className="text-white p-4">
-      <h2 className="text-2xl font-bold mb-4">لوحة تحكم المدير</h2>
+    <div className="text-white p-4 space-y-4">
 
-      {loading ? (
-        <p>جاري التحميل...</p>
-      ) : (
-        <div className="space-y-3">
-          {products.map((p) => (
-            <div
-              key={p.id}
-              className="bg-gray-800 p-3 rounded-lg flex justify-between"
-            >
-              <div>
-                <p className="font-bold">{p.name}</p>
-                <p className="text-sm text-gray-400">
-                  {p.category} • ${p.price}
-                </p>
-              </div>
+      <h2 className="text-2xl font-bold">لوحة التحكم</h2>
 
-              <div className="text-green-400">
-                {p.sales_count} بيع
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="grid gap-2 max-w-md">
+
+        <input
+          name="name"
+          placeholder="اسم المنتج"
+          value={form.name}
+          onChange={handleChange}
+          className="p-2 text-black"
+        />
+
+        <input
+          name="description"
+          placeholder="الوصف"
+          value={form.description}
+          onChange={handleChange}
+          className="p-2 text-black"
+        />
+
+        <input
+          name="price"
+          type="number"
+          placeholder="السعر"
+          value={form.price}
+          onChange={handleChange}
+          className="p-2 text-black"
+        />
+
+        <input
+          name="commission_rate"
+          type="number"
+          placeholder="نسبة العمولة"
+          value={form.commission_rate}
+          onChange={handleChange}
+          className="p-2 text-black"
+        />
+
+        <input
+          name="affiliate_link"
+          placeholder="رابط الأفلييت"
+          value={form.affiliate_link}
+          onChange={handleChange}
+          className="p-2 text-black"
+        />
+
+        <input
+          name="category"
+          placeholder="التصنيف"
+          value={form.category}
+          onChange={handleChange}
+          className="p-2 text-black"
+        />
+
+        <label className="flex gap-2">
+          <input
+            type="checkbox"
+            name="trending"
+            checked={form.trending}
+            onChange={handleChange}
+          />
+          ترند
+        </label>
+
+        <button
+          onClick={handleSubmit}
+          disabled={loading}
+          className="bg-green-600 p-2"
+        >
+          {loading ? 'جاري الإضافة...' : 'إضافة منتج'}
+        </button>
+
+      </div>
     </div>
   )
 }
