@@ -3,20 +3,6 @@ import { supabase } from '../lib/supabase'
 import { Product, Transaction, NetworkStats } from '../types'
 
 /* =========================
-   HELPERS
-========================= */
-
-// 🔥 جلب UUID الحقيقي من Supabase Auth
-const getAuthUserId = async () => {
-  const { data, error } = await supabase.auth.getUser()
-  if (error) {
-    console.error('Auth error:', error)
-    return null
-  }
-  return data.user?.id || null
-}
-
-/* =========================
    PRODUCTS (REAL-TIME READY)
 ========================= */
 export function useProducts() {
@@ -26,7 +12,7 @@ export function useProducts() {
   useEffect(() => {
     fetchProducts()
 
-    // 🔥 Real-time subscription
+    // Real-time subscription
     const channel = supabase
       .channel('products-channel')
       .on(
@@ -74,15 +60,14 @@ export function useTransactions(userId?: string) {
   }, [userId])
 
   const fetchTransactions = async () => {
-    const uid = userId || (await getAuthUserId())
-    if (!uid) return
+    if (!userId) return
 
     setLoading(true)
 
     const { data, error } = await supabase
       .from('transactions')
       .select('*')
-      .eq('user_id', uid)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -113,12 +98,11 @@ export function useEarnings(userId?: string) {
   }, [userId])
 
   const fetchStats = async () => {
-    const uid = userId || (await getAuthUserId())
-    if (!uid) return
+    if (!userId) return
 
     const [{ data: earnings }, { data: referrals }] = await Promise.all([
-      supabase.from('earnings').select('*').eq('user_id', uid),
-      supabase.from('referrals').select('*').eq('referrer_id', uid),
+      supabase.from('earnings').select('*').eq('user_id', userId),
+      supabase.from('referrals').select('*').eq('referrer_id', userId),
     ])
 
     const pending =
