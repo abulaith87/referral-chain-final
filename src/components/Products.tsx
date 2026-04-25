@@ -7,14 +7,14 @@ export function Products() {
   const { products, loading } = useProducts()
   const [processingId, setProcessingId] = useState<string | null>(null)
 
-  // جلب المستخدم الحالي من Supabase Auth
   const getUser = async () => {
     const { data } = await supabase.auth.getUser()
     return data.user
   }
 
-  // 🔥 عند الضغط على المنتج يتم تسجيل ربح
   const handleProductClick = async (product: Product) => {
+    if (processingId) return
+
     try {
       setProcessingId(product.id)
 
@@ -24,10 +24,9 @@ export function Products() {
         return
       }
 
-      // حساب العمولة
       const commission = (product.price * product.commission_rate) / 100
 
-      // 1️⃣ تسجيل الأرباح في جدول earnings
+      // 1️⃣ earnings
       const { error: earningsError } = await supabase.from('earnings').insert([
         {
           id: crypto.randomUUID(),
@@ -45,8 +44,8 @@ export function Products() {
         return
       }
 
-      // 2️⃣ تسجيل عملية في transactions
-      const { error: txnError } = await supabase.from('transactions').insert([
+      // 2️⃣ transaction
+      await supabase.from('transactions').insert([
         {
           id: crypto.randomUUID(),
           user_id: user.id,
@@ -58,12 +57,7 @@ export function Products() {
         },
       ])
 
-      if (txnError) {
-        console.error('Transaction error:', txnError)
-        return
-      }
-
-      // 3️⃣ تحديث عدد المبيعات للمنتج
+      // 3️⃣ update sales
       await supabase
         .from('products')
         .update({
@@ -71,7 +65,28 @@ export function Products() {
         })
         .eq('id', product.id)
 
-      // 4️⃣ فتح رابط المنتج (اختياري)
+      // 4️⃣ مشاركة قبل فتح الرابط
+      const shareText = `🔥 فرصة ربح من ${product.name} - اربح معنا الآن!`
+
+      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(
+        shareText + ' ' + product.affiliate_link
+      )}`
+
+      const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(
+        product.affiliate_link
+      )}&text=${encodeURIComponent(shareText)}`
+
+      const choice = window.confirm(
+        'هل تريد مشاركة المنتج؟\nOK = WhatsApp\nCancel = Telegram'
+      )
+
+      if (choice) {
+        window.open(whatsappUrl, '_blank')
+      } else {
+        window.open(telegramUrl, '_blank')
+      }
+
+      // 5️⃣ فتح الرابط الأساسي
       window.open(product.affiliate_link, '_blank')
 
       console.log('✅ Commission added:', commission)
@@ -96,9 +111,7 @@ export function Products() {
         >
           <h3 className="text-lg font-bold text-white">{product.name}</h3>
 
-          <p className="text-gray-300 mt-2">
-            السعر: ${product.price}
-          </p>
+          <p className="text-gray-300 mt-2">السعر: ${product.price}</p>
 
           <p className="text-green-400 mt-1">
             عمولة: {product.commission_rate}%
