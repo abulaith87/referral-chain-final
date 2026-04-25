@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Product, Transaction, Earnings, NetworkStats } from '../types'
+import { Product, Transaction, NetworkStats } from '../types'
 
 /* =========================
-   PRODUCTS
+   PRODUCTS (REAL-TIME READY)
 ========================= */
 export function useProducts() {
   const [products, setProducts] = useState<Product[]>([])
@@ -11,6 +11,22 @@ export function useProducts() {
 
   useEffect(() => {
     fetchProducts()
+
+    // 🔥 Real-time subscription
+    const channel = supabase
+      .channel('products-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products' },
+        () => {
+          fetchProducts()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   const fetchProducts = async () => {
@@ -19,12 +35,9 @@ export function useProducts() {
     const { data, error } = await supabase
       .from('products')
       .select('*')
-      .eq('is_active', true)
       .order('sales_count', { ascending: false })
 
-    if (error || !data || data.length === 0) {
-      setProducts(getDefaultProducts())
-    } else {
+    if (!error && data) {
       setProducts(data)
     }
 
@@ -109,12 +122,12 @@ export function useEarnings(userId?: string) {
 }
 
 /* =========================
-   ADMIN
+   ADMIN (FULL CONTROL)
 ========================= */
 export function useAdmin() {
   const [loading, setLoading] = useState(false)
 
-  const addProduct = async (product: Omit<Product, 'id'>) => {
+  const addProduct = async (product: Omit<Product, 'id' | 'created_at' | 'sales_count'>) => {
     setLoading(true)
 
     const { error } = await supabase.from('products').insert([
@@ -127,47 +140,32 @@ export function useAdmin() {
     ])
 
     setLoading(false)
-
     return { success: !error, error }
   }
 
   const updateProduct = async (id: string, data: Partial<Product>) => {
-    return await supabase.from('products').update(data).eq('id', id)
+    setLoading(true)
+
+    const { error } = await supabase
+      .from('products')
+      .update(data)
+      .eq('id', id)
+
+    setLoading(false)
+    return { success: !error, error }
   }
 
   const deleteProduct = async (id: string) => {
-    return await supabase.from('products').delete().eq('id', id)
+    setLoading(true)
+
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('id', id)
+
+    setLoading(false)
+    return { success: !error, error }
   }
 
   return { addProduct, updateProduct, deleteProduct, loading }
-}
-
-/* =========================
-   DEFAULT DATA (FALLBACK)
-========================= */
-function getDefaultProducts(): Product[] {
-  return [
-    {
-      id: '1',
-      name: 'VPN Pro',
-      price: 49,
-      commission_rate: 15,
-      affiliate_link: '#',
-      category: 'أدوات',
-      trending: true,
-      sales_count: 1000,
-      is_active: true,
-    },
-    {
-      id: '2',
-      name: 'Design Pack',
-      price: 29,
-      commission_rate: 12,
-      affiliate_link: '#',
-      category: 'تصميم',
-      trending: true,
-      sales_count: 800,
-      is_active: true,
-    },
-  ]
 }
