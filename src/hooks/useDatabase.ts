@@ -12,7 +12,7 @@ export function useProducts() {
   useEffect(() => {
     fetchProducts()
 
-    // Real-time subscription
+    // 🔥 Real-time subscription
     const channel = supabase
       .channel('products-channel')
       .on(
@@ -82,7 +82,7 @@ export function useTransactions(userId?: string) {
 }
 
 /* =========================
-   EARNINGS + NETWORK
+   EARNINGS + NETWORK (🔥 REAL-TIME UPGRADED)
 ========================= */
 export function useEarnings(userId?: string) {
   const [stats, setStats] = useState<NetworkStats>({
@@ -94,7 +94,38 @@ export function useEarnings(userId?: string) {
   })
 
   useEffect(() => {
-    if (userId) fetchStats()
+    if (!userId) return
+
+    fetchStats()
+
+    // 🔥 REAL-TIME LISTENER FOR EARNINGS
+    const earningsChannel = supabase
+      .channel('earnings-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'earnings', filter: `user_id=eq.${userId}` },
+        () => {
+          fetchStats()
+        }
+      )
+      .subscribe()
+
+    // 🔥 REAL-TIME LISTENER FOR REFERRALS
+    const referralChannel = supabase
+      .channel('referrals-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'referrals', filter: `referrer_id=eq.${userId}` },
+        () => {
+          fetchStats()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(earningsChannel)
+      supabase.removeChannel(referralChannel)
+    }
   }, [userId])
 
   const fetchStats = async () => {
