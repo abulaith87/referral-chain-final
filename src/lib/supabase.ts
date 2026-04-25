@@ -3,14 +3,23 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
-
-// Helper function to check if Supabase is configured
-export const isSupabaseConfigured = () => {
-  return !!(supabaseUrl && supabaseAnonKey)
+// 🟢 حماية من الأخطاء قبل إنشاء العميل
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('❌ Supabase environment variables are missing')
 }
 
-// Database types
+// Supabase Client
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+// Helper function
+export const isSupabaseConfigured = () => {
+  return Boolean(supabaseUrl && supabaseAnonKey)
+}
+
+/* =========================
+   TYPES (يفضل نقلها لاحقًا لملف types.ts)
+========================= */
+
 export interface User {
   id: string
   email: string
